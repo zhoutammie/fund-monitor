@@ -1,0 +1,45 @@
+# 关注列表 — 按需修改 code 和 name
+# 指数代码参考腾讯财经：sh000001(上证), hkHSTECH(恒生科技), usNDX(纳斯达克100)
+# 基金代码在天天基金网 URL 中查找，如 fund.eastmoney.com/110022.html
+
+indices:
+  - code: sh000001
+    name: 上证指数
+    market: cn
+  - code: sz399001
+    name: 深证成指
+    market: cn
+  - code: hkHSTECH
+    name: 恒生科技
+    market: hk
+  - code: hkHSI
+    name: 恒生指数
+    market: hk
+  - code: usNDX
+    name: 纳斯达克100
+    market: us
+  - code: usSPX
+    name: 标普500
+    market: us
+
+funds:
+  - code: "110022"
+    name: 易方达消费行业
+  - code: "012348"
+    name: 天弘恒生科技指数(QDII)C
+
+push:
+  # 启用的推送渠道: feishu, pushplus, email
+  channels: ["feishu"]
+  # 以下敏感信息建议通过 GitHub Secrets 或环境变量配置，留空即可
+  feishu_webhook: ""
+  pushplus_token: ""
+  email:
+    smtp_host: "smtp.qq.com"
+    smtp_port: 465
+    sender: ""
+    password: ""
+    receiver: ""
+
+# 页面自动刷新间隔（秒）
+refresh_interval: 180
