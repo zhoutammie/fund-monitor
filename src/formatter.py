@@ -22,25 +22,29 @@ def _format_price(price: float | None) -> str:
     return f"{price:.4f}" if price < 10 else f"{price:.2f}"
 
 
+def _format_quotes_section(title: str, quotes: list[IndexQuote]) -> list[str]:
+    if not quotes:
+        return []
+    lines = [title]
+    for q in quotes:
+        lines.append(f"{q.name}  {_format_price(q.price)}  {_format_change(q.change_pct)}")
+    lines.append("")
+    return lines
+
+
 def format_push_message(
     indices: list[IndexQuote],
     funds: list[FundQuote],
+    stocks: list[IndexQuote] | None = None,
     now: datetime | None = None,
 ) -> tuple[str, str]:
-    """生成推送标题与正文。"""
     now = now or datetime.now()
     time_str = now.strftime("%Y-%m-%d %H:%M")
     title = f"📊 基金/指数监控 {now.strftime('%H:%M')}"
 
     lines = [f"更新时间：{time_str}", ""]
-
-    if indices:
-        lines.append("【指数】")
-        for q in indices:
-            lines.append(
-                f"{q.name}  {_format_price(q.price)}  {_format_change(q.change_pct)}"
-            )
-        lines.append("")
+    lines.extend(_format_quotes_section("【指数】", indices))
+    lines.extend(_format_quotes_section("【股票】", stocks or []))
 
     if funds:
         lines.append("【基金估值】")
