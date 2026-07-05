@@ -1,4 +1,4 @@
-"""数据采集：腾讯财经（指数）+ 天天基金（场外基金估值）。"""
+"""数据采集：腾讯财经（指数/股票）+ 天天基金（场外基金估值）。"""
 
 from __future__ import annotations
 
@@ -19,6 +19,18 @@ HEADERS = {
     ),
     "Referer": "https://finance.qq.com/",
 }
+
+
+def infer_market(code: str) -> str:
+    """根据代码前缀推断市场。"""
+    c = code.lower()
+    if c.startswith(("sh", "sz")):
+        return "cn"
+    if c.startswith("hk"):
+        return "hk"
+    if c.startswith("us"):
+        return "us"
+    return "cn"
 
 
 @dataclass
@@ -43,7 +55,6 @@ class FundQuote:
 
 
 def _parse_tencent_line(line: str) -> dict[str, Any] | None:
-    """解析腾讯行情单行，如 v_sh000001=\"...\"。"""
     match = re.match(r'v_(?P<code>[a-zA-Z0-9]+)="(?P<body>.*)";?', line.strip())
     if not match or not match.group("body"):
         return None
@@ -81,7 +92,6 @@ def _safe_float(value: str | None) -> float | None:
 
 
 def fetch_indices(codes: list[str], names: dict[str, str] | None = None) -> list[IndexQuote]:
-    """批量获取指数实时行情（腾讯财经）。"""
     if not codes:
         return []
 
@@ -113,7 +123,6 @@ def fetch_indices(codes: list[str], names: dict[str, str] | None = None) -> list
 
 
 def fetch_fund(code: str, name: str | None = None) -> FundQuote | None:
-    """获取单只场外基金盘中估值（天天基金）。"""
     url = FUND_GZ_URL.format(code=code)
     resp = requests.get(url, headers=HEADERS, timeout=15)
     resp.raise_for_status()
@@ -138,7 +147,6 @@ def fetch_fund(code: str, name: str | None = None) -> FundQuote | None:
 
 
 def fetch_funds(items: list[dict[str, str]]) -> list[FundQuote]:
-    """批量获取场外基金估值。"""
     results: list[FundQuote] = []
     for item in items:
         code = str(item["code"])
@@ -162,7 +170,6 @@ def fetch_funds(items: list[dict[str, str]]) -> list[FundQuote]:
 
 
 def fetch_indices_akshare_fallback(codes: list[str], names: dict[str, str]) -> list[IndexQuote]:
-    """AKShare 备用数据源（腾讯失败时使用）。"""
     try:
         import akshare as ak
     except ImportError:
