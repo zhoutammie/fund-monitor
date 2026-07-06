@@ -7,6 +7,7 @@ import os
 import sys
 from datetime import datetime, time
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from fetcher import (
     fetch_funds,
@@ -19,6 +20,12 @@ from notifier import dispatch_push
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG_PATH = ROOT / "docs" / "watchlist.json"
+TZ = ZoneInfo("Asia/Shanghai")
+
+
+def now_local() -> datetime:
+    """北京时间（GitHub Actions 运行在 UTC，交易时段须按本地时区判断）。"""
+    return datetime.now(TZ).replace(tzinfo=None)
 
 
 def load_config() -> dict:
@@ -65,7 +72,7 @@ def _collect_markets(items: list[dict]) -> set[str]:
 
 
 def should_push(config: dict, now: datetime | None = None) -> bool:
-    now = now or datetime.now()
+    now = now or now_local()
     force = os.environ.get("FORCE_PUSH", "").lower() in ("1", "true", "yes")
     if force:
         return True
@@ -120,10 +127,10 @@ def collect_quotes(config: dict) -> tuple[list, list, list]:
 
 def main() -> int:
     config = load_config()
-    now = datetime.now()
+    now = now_local()
 
     if not should_push(config, now):
-        print(f"[{now:%Y-%m-%d %H:%M:%S}] 非交易时段，跳过推送。")
+        print(f"[{now:%Y-%m-%d %H:%M:%S} 北京时间] 非交易时段，跳过推送。")
         return 0
 
     indices, funds, stocks = collect_quotes(config)
