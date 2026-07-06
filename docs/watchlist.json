@@ -24,11 +24,6 @@
       "code": "usNDX",
       "name": "纳斯达克100",
       "market": "us"
-    },
-    {
-      "code": "usSPX",
-      "name": "标普500",
-      "market": "us"
     }
   ],
   "funds": [
