@@ -42,7 +42,7 @@ def format_push_message(
     time_str = now.strftime("%Y-%m-%d %H:%M")
     title = f"📊 基金/指数监控 {now.strftime('%H:%M')}"
 
-    lines = [f"更新时间：{time_str}", ""]
+    lines = [f"【监控】更新时间：{time_str}", ""]
     lines.extend(_format_quotes_section("【指数】", indices))
     lines.extend(_format_quotes_section("【股票】", stocks or []))
 
