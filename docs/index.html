@@ -64,7 +64,10 @@
     <div class="modal-backdrop" data-close-modal="settings-modal"></div>
     <div class="modal-content">
       <h3>设置</h3>
-      <p class="hint">GitHub Token 仅保存在本浏览器，用于同步关注列表到仓库。需 <strong>Contents: Read and write</strong> 权限。</p>
+      <p class="hint">
+        GitHub Token 仅保存在本浏览器。推荐 Fine-grained Token，仅授权 fund-monitor 的 Contents 读写，并设置过期时间。
+        <a href="https://github.com/zhoutammie/fund-monitor/blob/main/SECURITY.md" target="_blank" rel="noopener">安全说明</a>
+      </p>
       <label class="field-label" for="token-input">GitHub Token</label>
       <input id="token-input" type="password" placeholder="ghp_xxxx 或 github_pat_xxxx" autocomplete="off" />
       <p class="hint">
