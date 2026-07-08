@@ -23,38 +23,71 @@ CONFIG_PATH = ROOT / "docs" / "watchlist.json"
 TZ = ZoneInfo("Asia/Shanghai")
 US_TZ = ZoneInfo("America/New_York")
 
-CN_HK_MARKETS = frozenset({"cn", "hk"})
+CN_MARKETS = frozenset({"cn"})
+HK_MARKETS = frozenset({"hk"})
 US_MARKETS = frozenset({"us"})
+
+# GitHub Actions 定时任务可能延迟，允许 ±12 分钟匹配推送时刻
+SLOT_TOLERANCE_MIN = 12
+
+# A 股：9:30–11:30、13:00–15:00；开/收前后 5 分钟，盘中每 30 分钟
+CN_PUSH_SLOTS: list[time] = []
+
+# 港股：9:30–12:00、13:00–16:00（比 A 股多 11:30–12:00 与 15:00–16:00）
+HK_PUSH_SLOTS: list[time] = []
+
+# 美股：开盘 30 分钟后、收盘 30 分钟前（美东时间）
+US_PUSH_SLOTS = (time(10, 0), time(15, 30))
+
+
+def _add_minutes(t: time, minutes: int) -> time:
+    total = t.hour * 60 + t.minute + minutes
+    total %= 24 * 60
+    return time(total // 60, total % 60)
+
+
+def build_session_slots(
+    session_open: time,
+    session_close: time,
+    *,
+    open_offset_min: int = 5,
+    close_offset_min: int = 5,
+    interval_min: int = 30,
+) -> list[time]:
+    """从「开盘+N 分钟」到「收盘-N 分钟」，每 interval 分钟一个推送点（含首尾）。"""
+    start = _add_minutes(session_open, open_offset_min)
+    end = _add_minutes(session_close, -close_offset_min)
+    slots = [start]
+    cur = _add_minutes(start, interval_min)
+    while cur < end:
+        slots.append(cur)
+        cur = _add_minutes(cur, interval_min)
+    if slots[-1] != end:
+        slots.append(end)
+    return slots
+
+
+def _init_push_slots() -> None:
+    global CN_PUSH_SLOTS, HK_PUSH_SLOTS
+    CN_PUSH_SLOTS = build_session_slots(time(9, 30), time(11, 30)) + build_session_slots(
+        time(13, 0), time(15, 0)
+    )
+    HK_PUSH_SLOTS = build_session_slots(time(9, 30), time(12, 0)) + build_session_slots(
+        time(13, 0), time(16, 0)
+    )
+
+
+_init_push_slots()
 
 
 def now_local() -> datetime:
-    """北京时间（用于展示与 A 股/港股交易时段判断）。"""
+    """北京时间（用于消息展示）。"""
     return datetime.now(TZ).replace(tzinfo=None)
 
 
 def load_config() -> dict:
     with open(CONFIG_PATH, encoding="utf-8") as f:
         return json.load(f)
-
-
-def is_cn_trading() -> bool:
-    """A 股/港股关注项：按北京时间 9:30–11:30、13:00–15:00 推送。"""
-    dt = datetime.now(TZ)
-    if dt.weekday() >= 5:
-        return False
-    t = dt.time()
-    morning = time(9, 30) <= t <= time(11, 30)
-    afternoon = time(13, 0) <= t <= time(15, 0)
-    return morning or afternoon
-
-
-def is_us_trading() -> bool:
-    """美股关注项：按美东时间 9:30–16:00 推送（自动处理夏令时）。"""
-    dt = datetime.now(US_TZ)
-    if dt.weekday() >= 5:
-        return False
-    t = dt.time()
-    return time(9, 30) <= t <= time(16, 0)
 
 
 def item_market(item: dict, default: str = "cn") -> str:
@@ -79,22 +112,64 @@ def config_has_markets(config: dict, markets: frozenset[str]) -> bool:
     return bool(sub["indices"] or sub["stocks"] or sub["funds"])
 
 
-def get_push_groups(config: dict) -> set[str]:
+def matches_push_slot(now: datetime, slots: list[time] | tuple[time, ...]) -> bool:
+    now_min = now.hour * 60 + now.minute
+    best_diff = min(abs(now_min - (slot.hour * 60 + slot.minute)) for slot in slots)
+    return best_diff <= SLOT_TOLERANCE_MIN
+
+
+def is_cn_trading_time(t: time) -> bool:
+    return (time(9, 30) <= t <= time(11, 30)) or (time(13, 0) <= t <= time(15, 0))
+
+
+def is_hk_trading_time(t: time) -> bool:
+    return (time(9, 30) <= t <= time(12, 0)) or (time(13, 0) <= t <= time(16, 0))
+
+
+def is_weekday_in_tz(tz: ZoneInfo) -> bool:
+    return datetime.now(tz).weekday() < 5
+
+
+def get_active_markets(config: dict) -> frozenset[str]:
     force = os.environ.get("FORCE_PUSH", "").lower() in ("1", "true", "yes")
-    groups: set[str] = set()
+    active: set[str] = set()
 
     if force:
-        if config_has_markets(config, CN_HK_MARKETS):
-            groups.add("cn_hk")
+        if config_has_markets(config, CN_MARKETS):
+            active.add("cn")
+        if config_has_markets(config, HK_MARKETS):
+            active.add("hk")
         if config_has_markets(config, US_MARKETS):
-            groups.add("us")
-        return groups
+            active.add("us")
+        return frozenset(active)
 
-    if config_has_markets(config, CN_HK_MARKETS) and is_cn_trading():
-        groups.add("cn_hk")
-    if config_has_markets(config, US_MARKETS) and is_us_trading():
-        groups.add("us")
-    return groups
+    now_bj = datetime.now(TZ).replace(tzinfo=None)
+    now_us = datetime.now(US_TZ).replace(tzinfo=None)
+
+    if config_has_markets(config, CN_MARKETS) and is_weekday_in_tz(TZ):
+        if is_cn_trading_time(now_bj.time()) and matches_push_slot(now_bj, CN_PUSH_SLOTS):
+            active.add("cn")
+
+    if config_has_markets(config, HK_MARKETS) and is_weekday_in_tz(TZ):
+        if is_hk_trading_time(now_bj.time()) and matches_push_slot(now_bj, HK_PUSH_SLOTS):
+            active.add("hk")
+
+    if config_has_markets(config, US_MARKETS) and is_weekday_in_tz(US_TZ):
+        if matches_push_slot(now_us, US_PUSH_SLOTS):
+            active.add("us")
+
+    return frozenset(active)
+
+
+def session_label_for(markets: frozenset[str]) -> str:
+    parts: list[str] = []
+    if "cn" in markets:
+        parts.append("A股")
+    if "hk" in markets:
+        parts.append("港股")
+    if "us" in markets:
+        parts.append("美股")
+    return " · ".join(parts)
 
 
 def _fetch_tencent_quotes(items: list[dict]) -> list:
@@ -130,43 +205,25 @@ def collect_quotes(config: dict) -> tuple[list, list, list]:
 def main() -> int:
     config = load_config()
     now = now_local()
-    groups = get_push_groups(config)
+    markets = get_active_markets(config)
 
-    if not groups:
+    if not markets:
         bj = datetime.now(TZ)
         us = datetime.now(US_TZ)
         print(
             f"[北京 {bj:%Y-%m-%d %H:%M} / 美东 {us:%Y-%m-%d %H:%M}] "
-            "当前无活跃交易时段，跳过推送。"
+            "当前不在推送时刻，跳过。"
         )
         return 0
 
-    indices: list = []
-    funds: list = []
-    stocks: list = []
-    session_parts: list[str] = []
-
-    if "cn_hk" in groups:
-        sub = filter_config_by_markets(config, CN_HK_MARKETS)
-        i, f, s = collect_quotes(sub)
-        indices.extend(i)
-        funds.extend(f)
-        stocks.extend(s)
-        session_parts.append("A股/港股")
-
-    if "us" in groups:
-        sub = filter_config_by_markets(config, US_MARKETS)
-        i, f, s = collect_quotes(sub)
-        indices.extend(i)
-        funds.extend(f)
-        stocks.extend(s)
-        session_parts.append("美股")
+    sub = filter_config_by_markets(config, markets)
+    indices, funds, stocks = collect_quotes(sub)
 
     if not indices and not funds and not stocks:
         print("未获取到任何行情数据。")
         return 1
 
-    session_label = " · ".join(session_parts)
+    session_label = session_label_for(markets)
     title, body = format_push_message(indices, funds, stocks, now, session_label=session_label)
     print(title)
     print(body)
