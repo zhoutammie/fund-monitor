@@ -37,10 +37,12 @@ def format_push_message(
     funds: list[FundQuote],
     stocks: list[IndexQuote] | None = None,
     now: datetime | None = None,
+    session_label: str | None = None,
 ) -> tuple[str, str]:
     now = now or datetime.now()
     time_str = now.strftime("%Y-%m-%d %H:%M")
-    title = f"📊 基金/指数监控 {now.strftime('%H:%M')}"
+    suffix = f" [{session_label}]" if session_label else ""
+    title = f"📊 基金/指数监控{suffix} {now.strftime('%H:%M')}"
 
     lines = [f"【监控】更新时间：{time_str}", ""]
     lines.extend(_format_quotes_section("【指数】", indices))
