@@ -1,19 +1,46 @@
 {
   "indices": [
-    { "code": "sh000001", "name": "上证指数", "market": "cn" },
-    { "code": "sz399001", "name": "深证成指", "market": "cn" },
-    { "code": "hkHSTECH", "name": "恒生科技", "market": "hk" },
-    { "code": "hkHSI", "name": "恒生指数", "market": "hk" },
-    { "code": "usNDX", "name": "纳斯达克100", "market": "us" },
-    { "code": "usSPX", "name": "标普500", "market": "us" }
+    {
+      "code": "sh000001",
+      "name": "上证指数",
+      "market": "cn"
+    },
+    {
+      "code": "sz399001",
+      "name": "深证成指",
+      "market": "cn"
+    },
+    {
+      "code": "hkHSTECH",
+      "name": "恒生科技",
+      "market": "hk"
+    },
+    {
+      "code": "hkHSI",
+      "name": "恒生指数",
+      "market": "hk"
+    },
+    {
+      "code": "usNDX",
+      "name": "纳斯达克100",
+      "market": "us"
+    }
   ],
   "funds": [
-    { "code": "110022", "name": "易方达消费行业", "market": "cn" },
-    { "code": "012348", "name": "天弘恒生科技指数(QDII)C", "market": "hk" }
+    {
+      "code": "012348",
+      "name": "天弘恒生科技指数(QDII)C"
+    },
+    {
+      "code": "012922",
+      "name": "易方达全球成长精选混合(QDII)人民币C"
+    }
   ],
   "stocks": [],
   "refresh_interval": 180,
   "push": {
-    "channels": ["feishu"]
+    "channels": [
+      "feishu"
+    ]
   }
 }
