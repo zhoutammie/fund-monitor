@@ -9,7 +9,7 @@
   ],
   "funds": [
     { "code": "110022", "name": "易方达消费行业", "market": "cn" },
-    { "code": "012348", "name": "天弘恒生科技指数(QDII)C", "market": "cn" }
+    { "code": "012348", "name": "天弘恒生科技指数(QDII)C", "market": "hk" }
   ],
   "stocks": [],
   "refresh_interval": 180,
