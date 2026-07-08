@@ -27,17 +27,12 @@ CN_MARKETS = frozenset({"cn"})
 HK_MARKETS = frozenset({"hk"})
 US_MARKETS = frozenset({"us"})
 
-# GitHub Actions 定时任务可能延迟，允许 ±12 分钟匹配推送时刻
-SLOT_TOLERANCE_MIN = 12
+# GitHub Actions 定时任务常延迟 5–30 分钟，A/H 股用较宽容差
+SLOT_TOLERANCE_MIN = 20
 
-# A 股：9:30–11:30、13:00–15:00；开/收前后 5 分钟，盘中每 30 分钟
-CN_PUSH_SLOTS: list[time] = []
-
-# 港股：9:30–12:00、13:00–16:00（比 A 股多 11:30–12:00 与 15:00–16:00）
-HK_PUSH_SLOTS: list[time] = []
-
-# 美股：开盘 30 分钟后、收盘 30 分钟前（美东时间）
-US_PUSH_SLOTS = (time(10, 0), time(15, 30))
+# 美股：开盘+30min、收盘-30min，用时间窗口（避免 Actions 延迟错过）
+US_OPEN_PUSH = (time(10, 0), time(10, 45))   # 美东 10:00–10:45
+US_CLOSE_PUSH = (time(15, 30), time(15, 59))  # 美东 15:30–15:59
 
 
 def _add_minutes(t: time, minutes: int) -> time:
@@ -118,6 +113,17 @@ def matches_push_slot(now: datetime, slots: list[time] | tuple[time, ...]) -> bo
     return best_diff <= SLOT_TOLERANCE_MIN
 
 
+def in_time_window(t: time, start: time, end: time) -> bool:
+    return start <= t <= end
+
+
+def is_us_push_time(now_us: datetime) -> bool:
+    if now_us.weekday() >= 5:
+        return False
+    t = now_us.time()
+    return in_time_window(t, *US_OPEN_PUSH) or in_time_window(t, *US_CLOSE_PUSH)
+
+
 def is_cn_trading_time(t: time) -> bool:
     return (time(9, 30) <= t <= time(11, 30)) or (time(13, 0) <= t <= time(15, 0))
 
@@ -155,7 +161,7 @@ def get_active_markets(config: dict) -> frozenset[str]:
             active.add("hk")
 
     if config_has_markets(config, US_MARKETS) and is_weekday_in_tz(US_TZ):
-        if matches_push_slot(now_us, US_PUSH_SLOTS):
+        if is_us_push_time(now_us):
             active.add("us")
 
     return frozenset(active)
