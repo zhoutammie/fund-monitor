@@ -3,7 +3,7 @@ name: Fund Monitor Push
 on:
   schedule:
     # 每 30 分钟触发一次（UTC），周一至周五
-    - cron: "0,30 * * * 1-5"
+    - cron: "0,30 * * * *"
   workflow_dispatch:
     inputs:
       force_push:
