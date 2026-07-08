@@ -231,6 +231,18 @@ function closeModal(id) {
 }
 
 function setupManageUI() {
+  const placeholders = {
+    index: "A股 sh000001 · 港股 hkHSI · 美股 usNDX",
+    stock: "A股 600519 · 港股 00700 · 美股 AAPL",
+    fund: "6 位基金代码，如 110022",
+  };
+  const codeInput = document.getElementById("add-code");
+  const typeSelect = document.getElementById("add-type");
+  typeSelect.addEventListener("change", () => {
+    codeInput.placeholder = placeholders[typeSelect.value] || placeholders.stock;
+  });
+  codeInput.placeholder = placeholders[typeSelect.value];
+
   document.getElementById("add-btn").addEventListener("click", async () => {
     const type = document.getElementById("add-type").value;
     const code = document.getElementById("add-code").value;
