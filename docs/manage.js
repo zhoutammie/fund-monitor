@@ -37,7 +37,7 @@ const WatchlistStore = (() => {
   }
 
   function normalizeCode(type, raw) {
-    let code = raw.trim().toLowerCase();
+    let code = raw.trim().toLowerCase().replace(/\s/g, "");
     if (type === "fund") {
       code = code.replace(/\D/g, "");
       if (!/^\d{6}$/.test(code)) {
@@ -45,13 +45,32 @@ const WatchlistStore = (() => {
       }
       return code;
     }
+
+    // 去掉常见后缀：00700.hk、aapl.us
+    code = code.replace(/\.(hk|us|sh|sz)$/i, "");
+
+    if (/^(sh|sz|hk|us)[a-z0-9.]+$/i.test(code)) {
+      return code.replace(/\./g, "");
+    }
+
+    // A 股 6 位数字 → 自动加 sh/sz
     if (/^\d{6}$/.test(code)) {
-      code = (code.startsWith("6") ? "sh" : "sz") + code;
+      return (code.startsWith("6") ? "sh" : "sz") + code;
     }
-    if (!/^(sh|sz|hk|us)[a-z0-9]+$/i.test(code)) {
-      throw new Error("代码格式无效，示例：sh000001、sh600519、hk00700、110022");
+
+    // 港股 4–5 位数字 → hk + 补零至 5 位（如 700 → hk00700）
+    if (/^\d{4,5}$/.test(code)) {
+      return "hk" + code.padStart(5, "0");
     }
-    return code;
+
+    // 美股字母代码 → us + 大写（如 AAPL → usAAPL）
+    if (/^[a-z]{1,6}$/i.test(code)) {
+      return "us" + code.toUpperCase();
+    }
+
+    throw new Error(
+      "代码格式无效。A股：600519 或 sh600519；港股：00700 或 hk00700；美股：AAPL 或 usAAPL"
+    );
   }
 
   function getListKey(type) {
@@ -156,7 +175,11 @@ const WatchlistStore = (() => {
 
     let name = rawName?.trim() || "";
     if (!name) {
-      name = (await previewName(type, code)) || code;
+      try {
+        name = (await previewName(type, code)) || code;
+      } catch {
+        name = code;
+      }
     }
 
     const item = { code, name };
